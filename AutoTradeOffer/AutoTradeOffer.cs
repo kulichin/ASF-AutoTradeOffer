@@ -12,32 +12,30 @@ namespace AutoTradeOffer;
 
 #pragma warning disable CA1812 // ASF uses this class during runtime
 [UsedImplicitly]
-internal sealed class AutoTradeOffer : IPlugin, IASF, IBot, IBotConnection {
+internal sealed class AutoTradeOffer : IASF, IBotConnection {
 	private uint SteamAppID = 753;
 	private ulong SteamCommunityContextID = 6;
-	private bool TradeOfferAfterBotConnection = false;
+	private bool TradeOfferAfterBotConnection;
+	private bool OwnerAccountLoggedIn;
+	private bool WaitForOwnerAccount;
+	private readonly List<Bot> WaitingBots = new();
 
 	public string Name => nameof(AutoTradeOffer);
 	public Version Version => typeof(AutoTradeOffer).Assembly.GetName().Version ?? throw new InvalidOperationException(nameof(Version));
 
 	public Task OnLoaded() => Task.CompletedTask;
-	public Task OnBotDestroy(Bot bot) => Task.CompletedTask;
-	public Task OnBotInit(Bot bot) => Task.CompletedTask;
-
 	public Task OnASFInit(IReadOnlyDictionary<string, JToken>? additionalConfigProperties = null) {
-		// Login master account if exist
-
-		// Loading config
+		// Loading plugin config
 		if (additionalConfigProperties == null)
 			return Task.CompletedTask;
 
 		foreach (string? configProperty in additionalConfigProperties.Keys) {
 			if (configProperty == "AutoTradeOffer") {
 				if (additionalConfigProperties.TryGetValue(configProperty, out JToken? pluginConfig)) {
-
-					TradeOfferAfterBotConnection = pluginConfig.Value<bool?>("TradeOfferAfterBotConnection") ?? false;
 					SteamAppID = pluginConfig.Value<uint?>("SteamAppID") ?? 753;
 					SteamCommunityContextID = pluginConfig.Value<ulong?>("SteamCommunityContextID") ?? 6;
+					TradeOfferAfterBotConnection = pluginConfig.Value<bool?>("TradeOfferAfterBotConnection") ?? false;
+					WaitForOwnerAccount = pluginConfig.Value<bool?>("WaitForOwnerAccount") ?? false;
 				}
 			}
 		}
@@ -45,13 +43,34 @@ internal sealed class AutoTradeOffer : IPlugin, IASF, IBot, IBotConnection {
 		return Task.CompletedTask;
 	}
 
-	public Task OnBotLoggedOn(Bot bot) {
-		if (TradeOfferAfterBotConnection) {
-			_ = Task.Run(async () => {
-				(bool success, string message) = await bot.Actions.SendInventory(730, 2).ConfigureAwait(false);
+	public Task SendBotInventory(Bot bot) => Task.Run(async () => {
+		(bool success, string message) = await bot.Actions.SendInventory(SteamAppID, SteamCommunityContextID).ConfigureAwait(false);
 
-				ASF.ArchiLogger.LogGenericInfo($"AutoTradeOffer: {success}, {message}!");
-			});
+		ASF.ArchiLogger.LogGenericInfo($"AutoTradeOffer: Success: {success}; Message: {message}!");
+	});
+
+	public Task OnBotLoggedOn(Bot bot) {
+		if (WaitForOwnerAccount && ASF.IsOwner(bot.SteamID)) {
+			OwnerAccountLoggedIn = true;
+
+			// Sending previous trade offers
+			if (TradeOfferAfterBotConnection) {
+				foreach (Bot? waitingBot in WaitingBots) {
+					_ = SendBotInventory(waitingBot);
+				}
+
+				WaitingBots.Clear();
+			}
+		}
+
+		// Skip trade offer if owner account is not logged in
+		if (WaitForOwnerAccount && !OwnerAccountLoggedIn) {
+			WaitingBots.Add(bot);
+			return Task.CompletedTask;
+		}
+
+		if (TradeOfferAfterBotConnection) {
+			_ = SendBotInventory(bot);
 		}
 
 		return Task.CompletedTask;
