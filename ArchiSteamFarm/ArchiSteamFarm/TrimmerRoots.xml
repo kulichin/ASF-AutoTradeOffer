@@ -1,0 +1,20 @@
+<linker>
+	<!-- This is actually needed for ASF (JSON deserialization), not plugins -->
+	<assembly fullname="System.Collections.Immutable">
+		<type fullname="System.Collections.Immutable.ImmutableDictionary" />
+		<type fullname="System.Collections.Immutable.ImmutableHashSet" />
+		<type fullname="System.Collections.Immutable.ImmutableList" />
+	</assembly>
+
+	<!-- This is needed for basic plugins usage, the attribute is trimmed otherwise -->
+	<assembly fullname="System.Composition.AttributedModel">
+		<type fullname="System.Composition.ExportAttribute" />
+	</assembly>
+
+	<!-- This is needed for our STD plugin -->
+	<assembly fullname="System.Linq">
+		<type fullname="System.Linq.Enumerable">
+			<method name="MaxBy" />
+		</type>
+	</assembly>
+</linker>

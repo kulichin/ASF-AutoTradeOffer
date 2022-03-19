@@ -1,0 +1,103 @@
+<Project>
+	<PropertyGroup>
+		<Version>5.2.3.7</Version>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<AnalysisMode>AllEnabledByDefault</AnalysisMode>
+		<ApplicationIcon>../resources/ASF.ico</ApplicationIcon>
+		<Authors>JustArchi</Authors>
+		<Company>JustArchiNET</Company>
+		<Copyright>Copyright © 2015-$([System.DateTime]::UtcNow.Year) $(Company)</Copyright>
+		<Description>ASF is a C# application with primary purpose of idling Steam cards from multiple accounts simultaneously.</Description>
+		<Deterministic>true</Deterministic>
+		<ErrorReport>none</ErrorReport>
+		<LangVersion>latest</LangVersion>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+		<NeutralLanguage>en</NeutralLanguage>
+		<NoWarn>1591</NoWarn>
+		<Nullable>enable</Nullable>
+		<PackageIcon>../resources/ASF.ico</PackageIcon>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/$(Company)/ArchiSteamFarm</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReleaseNotes>$(PackageProjectUrl)/releases</PackageReleaseNotes>
+		<RepositoryBranch>main</RepositoryBranch>
+		<RepositoryType>Git</RepositoryType>
+		<RepositoryUrl>$(PackageProjectUrl).git</RepositoryUrl>
+		<RollForward>LatestMajor</RollForward>
+		<RuntimeIdentifiers>linux-arm;linux-arm64;linux-x64;osx-arm64;osx-x64;win-x64</RuntimeIdentifiers>
+		<TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+		<PackageReference Include="JustArchiNET.Madness" />
+		<Using Include="JustArchiNET.Madness" />
+		<Using Include="JustArchiNET.Madness.ArgumentNullExceptionMadness.ArgumentNullException" Alias="ArgumentNullException" />
+		<Using Include="JustArchiNET.Madness.ConvertMadness.Convert" Alias="Convert" />
+		<Using Include="JustArchiNET.Madness.EnumMadness.Enum" Alias="Enum" />
+		<Using Include="JustArchiNET.Madness.EnvironmentMadness.Environment" Alias="Environment" />
+		<Using Include="JustArchiNET.Madness.FileMadness.File" Alias="File" />
+		<Using Include="JustArchiNET.Madness.HashCodeMadness.HashCode" Alias="HashCode" />
+		<Using Include="JustArchiNET.Madness.HMACSHA1Madness.HMACSHA1" Alias="HMACSHA1" />
+		<Using Include="JustArchiNET.Madness.OperatingSystemMadness.OperatingSystem" Alias="OperatingSystem" />
+		<Using Include="JustArchiNET.Madness.PathMadness.Path" Alias="Path" />
+		<Using Include="JustArchiNET.Madness.RandomMadness.Random" Alias="Random" />
+		<Using Include="JustArchiNET.Madness.SHA256Madness.SHA256" Alias="SHA256" />
+		<Using Include="JustArchiNET.Madness.SHA512Madness.SHA512" Alias="SHA512" />
+		<Using Include="JustArchiNET.Madness.StringMadness.String" Alias="String" />
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(ASFVariant)' != ''">
+		<DefineConstants>$(DefineConstants);ASF_VARIANT_$(ASFVariant.Replace('-', '_').ToUpperInvariant())</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Default configuration for fast-debugging builds -->
+	<PropertyGroup Condition="'$(Configuration)' == 'DebugFast'">
+		<AnalysisMode>AllDisabledByDefault</AnalysisMode>
+		<DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<!-- Default configuration for release builds -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<DebugSymbols>false</DebugSymbols>
+		<DebugType>none</DebugType>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<WarningsAsErrors />
+		<WarningsNotAsErrors>CS8002,IL2026,IL2057,IL2072,IL2075,IL2104</WarningsNotAsErrors>
+	</PropertyGroup>
+
+	<!-- Enable public signing if not part of Visual Studio, which is too stupid to understand what public signing is -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(BuildingInsideVisualStudio)' != 'true'">
+		<AssemblyOriginatorKeyFile>../resources/ArchiSteamFarm.snk.pub</AssemblyOriginatorKeyFile>
+		<DefineConstants>$(DefineConstants);ASF_SIGNED_BUILD</DefineConstants>
+		<PublicSign>true</PublicSign>
+		<SignAssembly>true</SignAssembly>
+	</PropertyGroup>
+
+	<!-- Private SNK signing -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' AND EXISTS('resources/ArchiSteamFarm.snk')">
+		<AssemblyOriginatorKeyFile>../resources/ArchiSteamFarm.snk</AssemblyOriginatorKeyFile>
+		<DefineConstants>$(DefineConstants);ASF_SIGNED_BUILD</DefineConstants>
+		<PublicSign>false</PublicSign>
+		<SignAssembly>true</SignAssembly>
+	</PropertyGroup>
+
+	<!-- Trimming functionality as described on https://docs.microsoft.com/dotnet/core/deploying/trim-self-contained -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<DebuggerSupport>false</DebuggerSupport>
+		<EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+		<EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+		<EventSourceSupport>false</EventSourceSupport>
+		<HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+		<MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(OS)' == 'Windows_NT' OR '$(ASFNetFramework)' != ''">
+		<TargetFrameworks>net6.0;net48</TargetFrameworks>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(OS)' != 'Windows_NT' AND '$(ASFNetFramework)' == ''">
+		<TargetFramework>net6.0</TargetFramework>
+	</PropertyGroup>
+</Project>

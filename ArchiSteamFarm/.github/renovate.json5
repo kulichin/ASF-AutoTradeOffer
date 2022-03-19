@@ -1,0 +1,32 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:base",
+		":assignee(JustArchi)",
+		":automergeBranch",
+		":automergeDigest",
+		":automergeMinor",
+		":disableDependencyDashboard",
+		":disableRateLimiting",
+		":label(🤖 Automatic)"
+	],
+	"git-submodules": {
+		"enabled": true
+	},
+	"packageRules": [
+		{
+			// TODO: <= 3.1 for Mono support, last failed version 6.12, https://steamcommunity.com/groups/archiasf/discussions/1/2997673517556002529
+			"allowedVersions": "<= 3.1",
+			"matchManagers": [ "nuget" ],
+			"matchPackageNames": [ "Microsoft.Extensions.Configuration.Json", "Microsoft.Extensions.Logging.Configuration" ]
+		},
+		{
+			// TODO: ASF-ui bug, https://github.com/JustArchiNET/ASF-ui/issues/1556
+			"matchManagers": ["git-submodules"],
+			"matchPackageNames": [
+				"ASF-ui"
+			],
+			"enabled": false
+		}
+	]
+}

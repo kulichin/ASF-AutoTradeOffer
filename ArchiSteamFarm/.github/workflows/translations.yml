@@ -1,0 +1,84 @@
+name: ASF-translations
+
+on:
+  schedule:
+  - cron: '55 1 * * *'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3.0.0
+      with:
+        submodules: recursive
+        token: ${{ secrets.ARCHIBOT_GITHUB_TOKEN }}
+
+    - name: Reset wiki to follow origin
+      shell: sh
+      run: |
+        set -eu
+
+        cd wiki
+
+        git fetch --depth=1 origin master
+        git reset --hard origin/master
+
+    - name: Download latest translations from Crowdin
+      uses: crowdin/github-action@1.4.7
+      with:
+        upload_sources: false
+        download_translations: true
+        skip_untranslated_strings: true
+        push_translations: false
+        crowdin_branch_name: main
+        config: '.github/crowdin.yml'
+        project_id: ${{ secrets.ASF_CROWDIN_PROJECT_ID }}
+        token: ${{ secrets.ASF_CROWDIN_API_TOKEN }}
+
+    - name: Import GPG key for signing
+      uses: crazy-max/ghaction-import-gpg@v4.2.0
+      with:
+        gpg_private_key: ${{ secrets.ARCHIBOT_GPG_PRIVATE_KEY }}
+        git_config_global: true
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+
+    - name: Commit the changes to wiki
+      shell: sh
+      run: |
+        set -eu
+
+        cd wiki
+
+        git add -A "locale"
+
+        if ! git diff --cached --quiet; then
+            git commit -m "Automatic translations update"
+        fi
+
+    - name: Push changes to wiki
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        github_token: ${{ secrets.ARCHIBOT_GITHUB_TOKEN }}
+        branch: master
+        directory: wiki
+        repository: ${{ github.repository }}.wiki
+
+    - name: Commit the changes to ASF
+      shell: sh
+      run: |
+        set -eu
+
+        git add -A "ArchiSteamFarm/Localization" "ArchiSteamFarm.OfficialPlugins.SteamTokenDumper/Localization" "wiki"
+
+        if ! git diff --cached --quiet; then
+            git commit -m "Automatic translations update"
+        fi
+
+    - name: Push changes to ASF
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        github_token: ${{ secrets.ARCHIBOT_GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
