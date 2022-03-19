@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Timers;
 using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
@@ -18,6 +19,9 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 	private bool TradeOfferAfterBotConnection;
 	private bool OwnerAccountLoggedIn;
 	private bool WaitForOwnerAccount;
+	private bool PeriodicallySendTradeOffers;
+	private int PeriodicallySendTradeOffersTimer;
+
 	private readonly List<Bot> WaitingBots = new();
 
 	public string Name => nameof(AutoTradeOffer);
@@ -36,6 +40,8 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 					SteamCommunityContextID = pluginConfig.Value<ulong?>("SteamCommunityContextID") ?? 6;
 					TradeOfferAfterBotConnection = pluginConfig.Value<bool?>("TradeOfferAfterBotConnection") ?? false;
 					WaitForOwnerAccount = pluginConfig.Value<bool?>("WaitForOwnerAccount") ?? false;
+					PeriodicallySendTradeOffers = pluginConfig.Value<bool?>("PeriodicallySendTradeOffers") ?? false;
+					PeriodicallySendTradeOffersTimer = pluginConfig.Value<int?>("PeriodicallySendTradeOffers") ?? 3600;
 				}
 			}
 		}
@@ -47,6 +53,13 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 		(bool success, string message) = await bot.Actions.SendInventory(SteamAppID, SteamCommunityContextID).ConfigureAwait(false);
 
 		ASF.ArchiLogger.LogGenericInfo($"AutoTradeOffer: Success: {success}; Message: {message}!");
+
+		if (PeriodicallySendTradeOffers) {
+			Timer timer = new(PeriodicallySendTradeOffersTimer * 1000); // Convert to milliseconds
+			timer.AutoReset = true;
+			timer.Elapsed += (sender, e) => _ = SendBotInventory(bot);
+			timer.Start();
+		}
 	});
 
 	public Task OnBotLoggedOn(Bot bot) {
