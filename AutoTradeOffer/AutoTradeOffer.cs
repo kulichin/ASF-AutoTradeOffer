@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 using ArchiSteamFarm.Core;
 using ArchiSteamFarm.Plugins.Interfaces;
 using ArchiSteamFarm.Steam;
@@ -21,6 +21,9 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 	private bool WaitForOwnerAccount;
 	private bool PeriodicallySendTradeOffers;
 	private int PeriodicallySendTradeOffersTimer;
+
+	private int TimerDelayInMS;
+	private Timer? TimerHandler;
 
 	private readonly List<Bot> WaitingBots = new();
 
@@ -42,24 +45,35 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 					WaitForOwnerAccount = pluginConfig.Value<bool?>("WaitForOwnerAccount") ?? false;
 					PeriodicallySendTradeOffers = pluginConfig.Value<bool?>("PeriodicallySendTradeOffers") ?? false;
 					PeriodicallySendTradeOffersTimer = pluginConfig.Value<int?>("PeriodicallySendTradeOffers") ?? 3600;
+					TimerDelayInMS = PeriodicallySendTradeOffersTimer * 1000;
 				}
 			}
+		}
+
+		if (PeriodicallySendTradeOffers) {
+			TimerHandler = new(x => PeriodicallySendInventory(), null, TimerDelayInMS, Timeout.Infinite);
 		}
 
 		return Task.CompletedTask;
 	}
 
+	public void PeriodicallySendInventory() {
+		if (Bot.BotsReadOnly == null)
+			return;
+
+		IEnumerable<Bot>? bots = Bot.BotsReadOnly.Values;
+
+		foreach (var bot in bots) {
+			_ = SendBotInventory(bot);
+		}
+
+		TimerHandler = new(x => PeriodicallySendInventory(), null, TimerDelayInMS, Timeout.Infinite);
+	}
+
 	public Task SendBotInventory(Bot bot) => Task.Run(async () => {
 		(bool success, string message) = await bot.Actions.SendInventory(SteamAppID, SteamCommunityContextID).ConfigureAwait(false);
 
-		ASF.ArchiLogger.LogGenericInfo($"AutoTradeOffer: Success: {success}; Message: {message}!");
-
-		if (PeriodicallySendTradeOffers) {
-			Timer timer = new(PeriodicallySendTradeOffersTimer * 1000); // Convert to milliseconds
-			timer.AutoReset = true;
-			timer.Elapsed += (sender, e) => _ = SendBotInventory(bot);
-			timer.Start();
-		}
+		ASF.ArchiLogger.LogGenericInfo($"AutoTradeOffer: Bot: {bot.BotName} Success: {success}; Message: {message}!");
 	});
 
 	public Task OnBotLoggedOn(Bot bot) {
@@ -75,6 +89,8 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 				WaitingBots.Clear();
 			}
 		}
+
+		// TODO: Send trade offers after all bots login
 
 		// Skip trade offer if owner account is not logged in
 		if (WaitForOwnerAccount && !OwnerAccountLoggedIn) {
