@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ArchiSteamFarm.Core;
@@ -22,8 +23,10 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 	private bool PeriodicallySendTradeOffers;
 	private int PeriodicallySendTradeOffersTimer;
 
-	private int TimerDelayInMS;
-	private Timer? TimerHandler;
+	private int TimerInMS;
+	private int CurrentLoggedInBot;
+	private IEnumerable<Bot>? Bots;
+	private Timer? TimerHandle;
 
 	private readonly List<Bot> WaitingBots = new();
 
@@ -44,14 +47,10 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 					TradeOfferAfterBotConnection = pluginConfig.Value<bool?>("TradeOfferAfterBotConnection") ?? false;
 					WaitForOwnerAccount = pluginConfig.Value<bool?>("WaitForOwnerAccount") ?? false;
 					PeriodicallySendTradeOffers = pluginConfig.Value<bool?>("PeriodicallySendTradeOffers") ?? false;
-					PeriodicallySendTradeOffersTimer = pluginConfig.Value<int?>("PeriodicallySendTradeOffers") ?? 3600;
-					TimerDelayInMS = PeriodicallySendTradeOffersTimer * 1000;
+					PeriodicallySendTradeOffersTimer = pluginConfig.Value<int?>("PeriodicallySendTradeOffersTimer") ?? 3600;
+					TimerInMS = PeriodicallySendTradeOffersTimer * 1000;
 				}
 			}
-		}
-
-		if (PeriodicallySendTradeOffers) {
-			TimerHandler = new(x => PeriodicallySendInventory(), null, TimerDelayInMS, Timeout.Infinite);
 		}
 
 		return Task.CompletedTask;
@@ -62,12 +61,9 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 			return;
 
 		IEnumerable<Bot>? bots = Bot.BotsReadOnly.Values;
-
-		foreach (var bot in bots) {
+		foreach (Bot? bot in bots) {
 			_ = SendBotInventory(bot);
 		}
-
-		TimerHandler = new(x => PeriodicallySendInventory(), null, TimerDelayInMS, Timeout.Infinite);
 	}
 
 	public Task SendBotInventory(Bot bot) => Task.Run(async () => {
@@ -77,6 +73,13 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 	});
 
 	public Task OnBotLoggedOn(Bot bot) {
+		CurrentLoggedInBot++;
+
+		// Initialize array of bots references
+		if (Bots == null && Bot.BotsReadOnly != null) {
+			Bots = Bot.BotsReadOnly.Values;
+		}
+
 		if (WaitForOwnerAccount && ASF.IsOwner(bot.SteamID)) {
 			OwnerAccountLoggedIn = true;
 
@@ -90,8 +93,6 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 			}
 		}
 
-		// TODO: Send trade offers after all bots login
-
 		// Skip trade offer if owner account is not logged in
 		if (WaitForOwnerAccount && !OwnerAccountLoggedIn) {
 			WaitingBots.Add(bot);
@@ -100,6 +101,11 @@ internal sealed class AutoTradeOffer : IASF, IBotConnection {
 
 		if (TradeOfferAfterBotConnection) {
 			_ = SendBotInventory(bot);
+		}
+
+		// Starting trade offers timer after authorization of all bots
+		if (PeriodicallySendTradeOffers && Bots != null && CurrentLoggedInBot == Enumerable.Count(Bots)) {
+			TimerHandle = new(x => PeriodicallySendInventory(), null, TimerInMS, TimerInMS);
 		}
 
 		return Task.CompletedTask;
