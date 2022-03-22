@@ -13,7 +13,7 @@ Edit the **ASF.json** config and paste the following lines:
 "AutoTradeOffer": {
     "SteamAppID": 730,
     "SteamCommunityContextID": 2,
-	"TradeOfferAfterBotConnection": true,
+    "TradeOfferAfterBotConnection": true,
     "WaitForOwnerAccount": true,
     "PeriodicallySendTradeOffers": true,
     "PeriodicallySendTradeOffersTimer": 7200
